@@ -8,8 +8,8 @@
 	<string>manual</string>
 	<key>provisioningProfiles</key>
 	<dict>
-		<key>com.haruki.TransAI</key>
-		<string>TransAI_AdHoc_Profile</string>
+		<key>com.haruki.ForexForecast</key>
+		<string>ForexForecast_AdHoc_Profile</string>
 	</dict>
 	<key>teamID</key>
 	<string>8UT7U3MV6X</string>
