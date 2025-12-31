@@ -1,0 +1,133 @@
+  name: iOS Build (Ad-Hoc) - ForexForecast
+
+  permissions:
+    contents: write
+
+  on:
+    push:
+      branches: [ main ]
+    workflow_dispatch:
+
+  jobs:
+    build:
+      runs-on: macos-latest
+
+      steps:
+      # 1. リポジトリをチェックアウト
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # 2. CocoaPods があればインストール
+      - name: Install dependencies
+        run: |
+          if [ -f "ForexForecast/Podfile" ]; then
+            pod install --project-directory=ForexForecast
+          fi
+          
+      # 3. Provisioning Profile を復元
+      - name: Decode and install provisioning profile
+        env:
+            MOBILEPROVISION: ${{ secrets.PROVISIONING_PROFILE }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$MOBILEPROVISION" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/ForexForecast_AdHoc_Profile.mobileprovision
+
+
+      
+
+      # 4. 証明書を Keychain にインポート
+      - name: Import certificate to keychain
+        run: |
+          echo "$CERTIFICATE" | base64 --decode > /tmp/certificate.p12
+          security create-keychain -p "$CERTIFICATE_PASSWORD" build.keychain
+          security import /tmp/certificate.p12 -k ~/Library/Keychains/build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -s ~/Library/Keychains/build.keychain
+          security default-keychain -s ~/Library/Keychains/build.keychain
+          security unlock-keychain -p "$CERTIFICATE_PASSWORD" ~/Library/Keychains/build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$CERTIFICATE_PASSWORD" ~/Library/Keychains/build.keychain
+          security find-identity -v -p codesigning || true
+        env:
+          CERTIFICATE: ${{ secrets.CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+
+      # 5. DerivedData をクリーン
+      - name: Clean DerivedData
+        run: rm -rf ~/Library/Developer/Xcode/DerivedData
+
+      # 6. アーカイブ作成（Manual Signing）
+      - name: Build archive
+        run: |
+          mkdir -p logs
+          # 標準出力・標準エラーを logs/build.log に保存
+          xcodebuild clean -project ForexForecast.xcodeproj -scheme ForexForecast -configuration Release
+          xcodebuild \
+            -project ForexForecast.xcodeproj \
+            -scheme ForexForecast \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -archivePath $PWD/build/ForexForecast.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            PROVISIONING_PROFILE_SPECIFIER="ForexForecast_AdHoc_Profile" \
+            DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}" \
+            -verbose -showBuildTimingSummary \
+            > logs/build.log 2>&1 || true
+      
+      - name: Upload build logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: logs/build.log
+
+
+  
+      # 7. .ipa にエクスポート
+      - name: Export IPA
+        run: |
+          set -e
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/ForexForecast.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath $PWD/build
+          echo "Contents of build directory:"
+          ls -al build || true
+
+
+      # 8. .ipa を Artifact としてアップロード
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ForexForecast-ipa
+          path: build/*.ipa   # ← ✅ ここ変更！
+
+      # 9. Render 配布用 static/ にコピー
+      - name: Prepare static directory
+        run: |
+          mkdir -p static
+          cp build/*.ipa static/ || echo "No ipa to copy"
+          if [ -f Manifest.plist ]; then
+            cp Manifest.plist static/
+          fi
+          if [ -f index.html ]; then
+            cp index.html static/
+          fi
+
+      # 10. static/ をコミット & Push
+      - name: Commit and push static files
+        env:
+          GIT_AUTHOR_NAME: github-actions
+          GIT_AUTHOR_EMAIL: github-actions@github.com
+        run: |
+          set -e
+          git config user.name "${GIT_AUTHOR_NAME}"
+          git config user.email "${GIT_AUTHOR_EMAIL}"
+          echo "----- Static directory contents -----"
+          ls -al static || true
+          git add static || true
+          git commit -m "Deploy ipa to static for Render (Ad-Hoc build) [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "Push failed (maybe permissions)"
