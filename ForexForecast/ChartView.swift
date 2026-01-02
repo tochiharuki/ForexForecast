@@ -30,7 +30,10 @@ struct ChartView: UIViewRepresentable {
         webView.backgroundColor = .black
         webView.isOpaque = false
 
-        webView.loadHTMLString(html, baseURL: nil)
+        webView.loadHTMLString(
+            html,
+            baseURL: URL(string: "https://harukitech.site")
+        )
         return webView
     }
 
@@ -84,7 +87,7 @@ struct ChartView: UIViewRepresentable {
     // JS（最重要）
     // ===============================
     static let chartJS = """
-    (function() {
+    (function () {
 
         window.webkit.messageHandlers.jsHandler.postMessage("JS start");
 
@@ -93,49 +96,41 @@ struct ChartView: UIViewRepresentable {
             return;
         }
 
-        try {
+        const container = document.getElementById("chart");
+        const w = container.clientWidth;
+        const h = container.clientHeight;
 
-            const container = document.getElementById("chart");
-            const w = container.clientWidth;
-            const h = container.clientHeight;
+        const chart = LightweightCharts.createChart(container, {
+            width: w,
+            height: h,
+            layout: {
+                background: { color: "#111" },
+                textColor: "#DDD"
+            }
+        });
 
-            window.webkit.messageHandlers.jsHandler.postMessage(
-                "container size: " + w + "x" + h
-            );
+        const series = chart.addSeries(LightweightCharts.CandlestickSeries);
 
-            // ★ 視覚確認用（これが見えればDOM描画は生きている）
-            container.style.border = "2px solid red";
+        fetch("https://harukitech.site/candles?limit=200")
+            .then(res => res.json())
+            .then(data => {
 
-            const chart = LightweightCharts.createChart(container, {
-                width: w,
-                height: h,
-                layout: {
-                    background: { color: "#111" },
-                    textColor: "#DDD"
-                }
+                const candles = data.map(d => ({
+                    time: Math.floor(new Date(d.time).getTime() / 1000),
+                    open: d.open,
+                    high: d.high,
+                    low: d.low,
+                    close: d.close
+                }));
+
+                series.setData(candles);
+                chart.timeScale().fitContent();
+
+                window.webkit.messageHandlers.jsHandler.postMessage("Chart rendered");
+            })
+            .catch(err => {
+                window.webkit.messageHandlers.jsHandler.postMessage("❌ fetch error: " + err);
             });
-
-            window.webkit.messageHandlers.jsHandler.postMessage("chart created");
-
-            const series = chart.addSeries(LightweightCharts.CandlestickSeries);
-            window.webkit.messageHandlers.jsHandler.postMessage("series added");
-
-            series.setData([
-                { time: "2024-01-01", open: 140.2, high: 140.8, low: 139.9, close: 140.5 },
-                { time: "2024-01-02", open: 140.5, high: 141.0, low: 140.2, close: 140.9 },
-                { time: "2024-01-03", open: 140.9, high: 141.2, low: 140.4, close: 140.6 }
-            ]);
-
-            window.webkit.messageHandlers.jsHandler.postMessage("data set");
-
-            chart.timeScale().fitContent();
-            window.webkit.messageHandlers.jsHandler.postMessage("Chart rendered");
-
-        } catch (e) {
-            window.webkit.messageHandlers.jsHandler.postMessage(
-                "❌ JS Error: " + e.message
-            );
-        }
 
     })();
     """
