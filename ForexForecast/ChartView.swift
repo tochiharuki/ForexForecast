@@ -141,13 +141,6 @@ struct ChartView: UIViewRepresentable {
             wickDownColor: "#ef5350"
         });
         
-        const tradeLineSeries = chart.addLineSeries({
-            color: "#888",
-            lineWidth: 2,
-            lineStyle: LightweightCharts.LineStyle.Dashed,
-            priceLineVisible: false,
-            lastValueVisible: false,
-        });
 
         // ===============================
         // Data Fetch
@@ -156,7 +149,6 @@ struct ChartView: UIViewRepresentable {
             .then(res => res.json())
             .then(data => {
                 let currentTrade = null;
-                const tradeLines = [];
                 const exitMarkers = [];
 
                 // --- ローソク足 ---
@@ -186,22 +178,52 @@ struct ChartView: UIViewRepresentable {
                     if (currentTrade && d.exit === 1) {
                         const exitPrice = d.close;
 
-                        // 点線（エントリー → 決済）
-                        tradeLines.push(
+                        // --- 点線（エントリー → EXIT のみ）---
+                        const lineSeries = chart.addLineSeries({
+                            color: "#888",
+                            lineWidth: 2,
+                            lineStyle: LightweightCharts.LineStyle.Dashed,
+                            priceLineVisible: false,
+                            lastValueVisible: false,
+                        });
+
+                        lineSeries.setData([
                             { time: currentTrade.entryTime, value: currentTrade.entryPrice },
                             { time: time, value: exitPrice }
-                        );
+                        ]);
 
-                        // 利確 / 損切り
+                        // --- 利確 / 損切り ---
                         const isProfit =
                             (currentTrade.direction === "LONG" && exitPrice > currentTrade.entryPrice) ||
                             (currentTrade.direction === "SHORT" && exitPrice < currentTrade.entryPrice);
 
+                        // ===== 矢印の向きを正しく決定 =====
+                        let shape;
+                        let position;
+
+                        if (currentTrade.direction === "LONG") {
+                            if (isProfit) {
+                                shape = "arrowUp";     // LONG TP
+                                position = "aboveBar";
+                            } else {
+                                shape = "arrowDown";   // LONG SL
+                                position = "belowBar";
+                            }
+                        } else { // SHORT
+                            if (isProfit) {
+                                shape = "arrowDown";   // SHORT TP
+                                position = "belowBar";
+                            } else {
+                                shape = "arrowUp";     // SHORT SL
+                                position = "aboveBar";
+                            }
+                        }
+
                         exitMarkers.push({
                             time: time,
-                            position: currentTrade.direction === "LONG" ? "aboveBar" : "belowBar",
+                            position: position,
                             color: isProfit ? "#4caf50" : "#ff5252",
-                            shape: isProfit ? "arrowUp" : "arrowDown",
+                            shape: shape,
                             text: isProfit ? "TP" : "SL"
                         });
 
@@ -222,8 +244,6 @@ struct ChartView: UIViewRepresentable {
 
                 series.setMarkers(markers.concat(exitMarkers));
 
-                tradeLineSeries.setData(tradeLines);
-
                 chart.timeScale().fitContent();
 
                 window.webkit.messageHandlers.jsHandler.postMessage(
@@ -234,7 +254,6 @@ struct ChartView: UIViewRepresentable {
             .catch(err => {
                 window.webkit.messageHandlers.jsHandler.postMessage("❌ fetch error: " + err);
             });
-
     })();
     """
 }
