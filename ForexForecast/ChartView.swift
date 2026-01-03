@@ -100,21 +100,66 @@ struct ChartView: UIViewRepresentable {
         const w = container.clientWidth;
         const h = container.clientHeight;
 
+        // ===============================
+        // Chart
+        // ===============================
         const chart = LightweightCharts.createChart(container, {
             width: w,
             height: h,
             layout: {
-                background: { color: "#111" },
+                background: {
+                type: "solid",
+                color: "#111"   
+                },
                 textColor: "#DDD"
+            },
+            grid: {
+                vertLines: { color: "#222" },
+                horzLines: { color: "#222" }
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false
+            },
+            rightPriceScale: {
+                borderColor: "#444"
+            },
+            crosshair: {
+                mode: LightweightCharts.CrosshairMode.Normal
             }
         });
 
-        const series = chart.addSeries(LightweightCharts.CandlestickSeries);
+        // ===============================
+        // Candlestick Series（v4）
+        // ===============================
+        const series = chart.addCandlestickSeries({
+            upColor: "#26a69a",
+            downColor: "#ef5350",
+            borderUpColor: "#26a69a",
+            borderDownColor: "#ef5350",
+            wickUpColor: "#26a69a",
+            wickDownColor: "#ef5350"
+        });
+        
+        const tradeLineSeries = chart.addLineSeries({
+            color: "#888",
+            lineWidth: 2,
+            lineStyle: LightweightCharts.LineStyle.Dashed,
+            priceLineVisible: false,
+            lastValueVisible: false,
+        });
 
+        // ===============================
+        // Data Fetch
+        // ===============================
         fetch("https://harukitech.site/candles?limit=200")
             .then(res => res.json())
             .then(data => {
+                let currentTrade = null;
+                const tradeLines = [];
+                const exitMarkers = [];
 
+                // --- ローソク足 ---
                 const candles = data.map(d => ({
                     time: Math.floor(new Date(d.time).getTime() / 1000),
                     open: d.open,
@@ -124,9 +169,67 @@ struct ChartView: UIViewRepresentable {
                 }));
 
                 series.setData(candles);
+
+                data.forEach(d => {
+                    const time = Math.floor(new Date(d.time).getTime() / 1000);
+
+                    // ========= ENTRY =========
+                    if (!currentTrade && (d.direction === "LONG" || d.direction === "SHORT")) {
+                        currentTrade = {
+                            direction: d.direction,
+                            entryTime: time,
+                            entryPrice: d.close
+                        };
+                    }
+
+                    // ========= EXIT =========
+                    if (currentTrade && d.exit === 1) {
+                        const exitPrice = d.close;
+
+                        // 点線（エントリー → 決済）
+                        tradeLines.push(
+                            { time: currentTrade.entryTime, value: currentTrade.entryPrice },
+                            { time: time, value: exitPrice }
+                        );
+
+                        // 利確 / 損切り
+                        const isProfit =
+                            (currentTrade.direction === "LONG" && exitPrice > currentTrade.entryPrice) ||
+                            (currentTrade.direction === "SHORT" && exitPrice < currentTrade.entryPrice);
+
+                        exitMarkers.push({
+                            time: time,
+                            position: currentTrade.direction === "LONG" ? "aboveBar" : "belowBar",
+                            color: isProfit ? "#4caf50" : "#ff5252",
+                            shape: isProfit ? "arrowUp" : "arrowDown",
+                            text: isProfit ? "TP" : "SL"
+                        });
+
+                        currentTrade = null;
+                    }
+                });
+
+                // --- トレードマーカー ---
+                const markers = data
+                    .filter(d => d.direction === "LONG" || d.direction === "SHORT")
+                    .map(d => ({
+                        time: Math.floor(new Date(d.time).getTime() / 1000),
+                        position: d.direction === "LONG" ? "belowBar" : "aboveBar",
+                        color: d.direction === "LONG" ? "#26a69a" : "#ef5350",
+                        shape: d.direction === "LONG" ? "arrowUp" : "arrowDown",
+                        text: d.direction
+                    }));
+
+                series.setMarkers(markers.concat(exitMarkers));
+
+                tradeLineSeries.setData(tradeLines);
+
                 chart.timeScale().fitContent();
 
-                window.webkit.messageHandlers.jsHandler.postMessage("Chart rendered");
+                window.webkit.messageHandlers.jsHandler.postMessage(
+                    "Chart rendered. candles=" + candles.length +
+                    " markers=" + markers.length
+                );
             })
             .catch(err => {
                 window.webkit.messageHandlers.jsHandler.postMessage("❌ fetch error: " + err);

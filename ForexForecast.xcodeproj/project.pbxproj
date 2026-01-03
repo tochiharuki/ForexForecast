@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		88EA32DB2F05025B00056455 /* lightweight-charts.js in Resources */ = {isa = PBXBuildFile; fileRef = 88EA32DA2F05025B00056455 /* lightweight-charts.js */; };
+		88EA33052F08BCDE00056455 /* lightweight-charts.js in Resources */ = {isa = PBXBuildFile; fileRef = 88EA33042F08BCDE00056455 /* lightweight-charts.js */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,7 +31,7 @@
 		88EA32A92F04EEF500056455 /* ForexForecast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ForexForecast.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		88EA32BA2F04EEF700056455 /* ForexForecastTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForexForecastTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		88EA32C42F04EEF700056455 /* ForexForecastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ForexForecastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		88EA32DA2F05025B00056455 /* lightweight-charts.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "lightweight-charts.js"; sourceTree = "<group>"; };
+		88EA33042F08BCDE00056455 /* lightweight-charts.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "lightweight-charts.js"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -97,7 +97,7 @@
 				88EA32BD2F04EEF700056455 /* ForexForecastTests */,
 				88EA32C72F04EEF700056455 /* ForexForecastUITests */,
 				88EA32AA2F04EEF500056455 /* Products */,
-				88EA32DA2F05025B00056455 /* lightweight-charts.js */,
+				88EA33042F08BCDE00056455 /* lightweight-charts.js */,
 			);
 			sourceTree = "<group>";
 		};
@@ -231,7 +231,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				88EA32DB2F05025B00056455 /* lightweight-charts.js in Resources */,
+				88EA33052F08BCDE00056455 /* lightweight-charts.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
