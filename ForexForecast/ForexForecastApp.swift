@@ -37,6 +37,16 @@ class AppDelegate: NSObject,
     }
 
     // ===============================
+    // フォアグラウンド通知表示対応
+    // ===============================
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // アラート、バッジ、サウンドで通知を表示
+        completionHandler([.alert, .badge, .sound])
+    }
+
+    // ===============================
     // FCM トークン取得
     // ===============================
     func messaging(_ messaging: Messaging,
