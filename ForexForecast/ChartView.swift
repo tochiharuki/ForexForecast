@@ -146,14 +146,22 @@ struct ChartView: UIViewRepresentable {
         // Data Fetch
         // ===============================
         fetch("https://harukitech.site/candles?limit=200")
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("HTTP " + res.status);
+                }
+                return res.json();
+            })
             .then(data => {
+
                 let currentTrade = null;
                 const exitMarkers = [];
 
-                // --- ローソク足 ---
+                // ===============================
+                // Candles
+                // ===============================
                 const candles = data.map(d => ({
-                    time: Math.floor(new Date(d.time).getTime() / 1000),
+                    time: Math.floor(new Date(d.time).getTime() / 1000), // ← 統一
                     open: d.open,
                     high: d.high,
                     low: d.low,
@@ -178,7 +186,6 @@ struct ChartView: UIViewRepresentable {
                     if (currentTrade && d.exit === 1) {
                         const exitPrice = d.close;
 
-                        // --- 点線（エントリー → EXIT のみ）---
                         const lineSeries = chart.addLineSeries({
                             color: "#888",
                             lineWidth: 2,
@@ -192,31 +199,19 @@ struct ChartView: UIViewRepresentable {
                             { time: time, value: exitPrice }
                         ]);
 
-                        // --- 利確 / 損切り ---
                         const isProfit =
                             (currentTrade.direction === "LONG" && exitPrice > currentTrade.entryPrice) ||
                             (currentTrade.direction === "SHORT" && exitPrice < currentTrade.entryPrice);
 
-                        // ===== 矢印の向きを正しく決定 =====
                         let shape;
                         let position;
 
                         if (currentTrade.direction === "LONG") {
-                            if (isProfit) {
-                                shape = "arrowUp";     // LONG TP
-                                position = "aboveBar";
-                            } else {
-                                shape = "arrowDown";   // LONG SL
-                                position = "belowBar";
-                            }
-                        } else { // SHORT
-                            if (isProfit) {
-                                shape = "arrowDown";   // SHORT TP
-                                position = "belowBar";
-                            } else {
-                                shape = "arrowUp";     // SHORT SL
-                                position = "aboveBar";
-                            }
+                            shape = isProfit ? "arrowUp" : "arrowDown";
+                            position = isProfit ? "aboveBar" : "belowBar";
+                        } else {
+                            shape = isProfit ? "arrowDown" : "arrowUp";
+                            position = isProfit ? "belowBar" : "aboveBar";
                         }
 
                         exitMarkers.push({
@@ -231,7 +226,9 @@ struct ChartView: UIViewRepresentable {
                     }
                 });
 
-                // --- トレードマーカー ---
+                // ===============================
+                // Entry Markers
+                // ===============================
                 const markers = data
                     .filter(d => d.direction === "LONG" || d.direction === "SHORT")
                     .map(d => ({
@@ -252,7 +249,9 @@ struct ChartView: UIViewRepresentable {
                 );
             })
             .catch(err => {
-                window.webkit.messageHandlers.jsHandler.postMessage("❌ fetch error: " + err);
+                window.webkit.messageHandlers.jsHandler.postMessage(
+                    "❌ fetch error: " + err.message
+                );
             });
     })();
     """
