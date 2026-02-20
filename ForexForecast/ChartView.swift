@@ -3,8 +3,10 @@ import WebKit
 
 struct ChartView: UIViewRepresentable {
 
+    @Binding var reloadTrigger: Bool
+
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(self)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -13,7 +15,6 @@ struct ChartView: UIViewRepresentable {
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.userContentController.add(context.coordinator, name: "jsHandler")
 
-        // lightweight-charts 注入
         if let jsURL = Bundle.main.url(forResource: "lightweight-charts", withExtension: "js"),
            let js = try? String(contentsOf: jsURL, encoding: .utf8) {
 
@@ -30,19 +31,29 @@ struct ChartView: UIViewRepresentable {
         webView.backgroundColor = .black
         webView.isOpaque = false
 
-        webView.loadHTMLString(
-            html,
-            baseURL: URL(string: "https://harukitech.site")
-        )
+        webView.loadHTMLString(html, baseURL: URL(string: "https://harukitech.site"))
+        context.coordinator.webView = webView
+
         return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        if reloadTrigger {
+            uiView.reload()
+            DispatchQueue.main.async {
+                reloadTrigger = false
+            }
+        }
+    }
 
-    // ===============================
-    // Coordinator
-    // ===============================
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+
+        var parent: ChartView
+        weak var webView: WKWebView?
+
+        init(_ parent: ChartView) {
+            self.parent = parent
+        }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.evaluateJavaScript(ChartView.chartJS)
@@ -56,9 +67,6 @@ struct ChartView: UIViewRepresentable {
         }
     }
 
-    // ===============================
-    // HTML
-    // ===============================
     private let html = """
     <!DOCTYPE html>
     <html>
@@ -69,7 +77,7 @@ struct ChartView: UIViewRepresentable {
                 margin: 0;
                 width: 100%;
                 height: 100%;
-                background: #111;
+                background: #0D0F14;
             }
             #chart {
                 width: 100%;
@@ -83,85 +91,45 @@ struct ChartView: UIViewRepresentable {
     </html>
     """
 
-    // ===============================
-    // JS（最重要）
-    // ===============================
     static let chartJS = """
     (function () {
 
-        window.webkit.messageHandlers.jsHandler.postMessage("JS start");
-
         if (typeof LightweightCharts === "undefined") {
-            window.webkit.messageHandlers.jsHandler.postMessage("❌ LightweightCharts undefined");
             return;
         }
 
         const container = document.getElementById("chart");
-        const w = container.clientWidth;
-        const h = container.clientHeight;
 
-        // ===============================
-        // Chart
-        // ===============================
         const chart = LightweightCharts.createChart(container, {
-            width: w,
-            height: h,
+            width: container.clientWidth,
+            height: container.clientHeight,
             layout: {
-                background: {
-                type: "solid",
-                color: "#111"   
-                },
-                textColor: "#DDD"
+                background: { type: "solid", color: "#0D0F14" },
+                textColor: "#C9D1D9"
             },
             grid: {
-                vertLines: { color: "#222" },
-                horzLines: { color: "#222" }
+                vertLines: { color: "#1F2937" },
+                horzLines: { color: "#1F2937" }
             },
-            timeScale: {
-                timeVisible: true,
-                secondsVisible: false
-            },
-            rightPriceScale: {
-                borderColor: "#444"
-            },
-            crosshair: {
-                mode: LightweightCharts.CrosshairMode.Normal
-            }
         });
 
-        // ===============================
-        // Candlestick Series（v4）
-        // ===============================
         const series = chart.addCandlestickSeries({
-            upColor: "#26a69a",
-            downColor: "#ef5350",
-            borderUpColor: "#26a69a",
-            borderDownColor: "#ef5350",
-            wickUpColor: "#26a69a",
-            wickDownColor: "#ef5350"
+            upColor: "#00C896",
+            downColor: "#FF4C4C",
+            borderUpColor: "#00C896",
+            borderDownColor: "#FF4C4C",
+            wickUpColor: "#00C896",
+            wickDownColor: "#FF4C4C"
         });
-        
 
-        // ===============================
-        // Data Fetch
-        // ===============================
         fetch("https://harukitech.site/candles?limit=200")
-            .then(res => {
-                if (!res.ok) {
-                    throw new Error("HTTP " + res.status);
-                }
-                return res.json();
-            })
+            .then(res => res.json())
             .then(data => {
 
-                let currentTrade = null;
-                const exitMarkers = [];
+                data.sort((a, b) => new Date(a.time) - new Date(b.time));
 
-                // ===============================
-                // Candles
-                // ===============================
                 const candles = data.map(d => ({
-                    time: Math.floor(new Date(d.time).getTime() / 1000), // ← 統一
+                    time: Math.floor(new Date(d.time).getTime() / 1000),
                     open: d.open,
                     high: d.high,
                     low: d.low,
@@ -169,90 +137,9 @@ struct ChartView: UIViewRepresentable {
                 }));
 
                 series.setData(candles);
-
-                data.forEach(d => {
-                    const time = Math.floor(new Date(d.time).getTime() / 1000);
-
-                    // ========= ENTRY =========
-                    if (!currentTrade && (d.direction === "LONG" || d.direction === "SHORT")) {
-                        currentTrade = {
-                            direction: d.direction,
-                            entryTime: time,
-                            entryPrice: d.close
-                        };
-                    }
-
-                    // ========= EXIT =========
-                    if (currentTrade && d.exit === 1) {
-                        const exitPrice = d.close;
-
-                        const lineSeries = chart.addLineSeries({
-                            color: "#888",
-                            lineWidth: 2,
-                            lineStyle: LightweightCharts.LineStyle.Dashed,
-                            priceLineVisible: false,
-                            lastValueVisible: false,
-                        });
-
-                        lineSeries.setData([
-                            { time: currentTrade.entryTime, value: currentTrade.entryPrice },
-                            { time: time, value: exitPrice }
-                        ]);
-
-                        const isProfit =
-                            (currentTrade.direction === "LONG" && exitPrice > currentTrade.entryPrice) ||
-                            (currentTrade.direction === "SHORT" && exitPrice < currentTrade.entryPrice);
-
-                        let shape;
-                        let position;
-
-                        if (currentTrade.direction === "LONG") {
-                            shape = isProfit ? "arrowUp" : "arrowDown";
-                            position = isProfit ? "aboveBar" : "belowBar";
-                        } else {
-                            shape = isProfit ? "arrowDown" : "arrowUp";
-                            position = isProfit ? "belowBar" : "aboveBar";
-                        }
-
-                        exitMarkers.push({
-                            time: time,
-                            position: position,
-                            color: isProfit ? "#4caf50" : "#ff5252",
-                            shape: shape,
-                            text: isProfit ? "TP" : "SL"
-                        });
-
-                        currentTrade = null;
-                    }
-                });
-
-                // ===============================
-                // Entry Markers
-                // ===============================
-                const markers = data
-                    .filter(d => d.direction === "LONG" || d.direction === "SHORT")
-                    .map(d => ({
-                        time: Math.floor(new Date(d.time).getTime() / 1000),
-                        position: d.direction === "LONG" ? "belowBar" : "aboveBar",
-                        color: d.direction === "LONG" ? "#26a69a" : "#ef5350",
-                        shape: d.direction === "LONG" ? "arrowUp" : "arrowDown",
-                        text: d.direction
-                    }));
-
-                series.setMarkers(markers.concat(exitMarkers));
-
                 chart.timeScale().fitContent();
-
-                window.webkit.messageHandlers.jsHandler.postMessage(
-                    "Chart rendered. candles=" + candles.length +
-                    " markers=" + markers.length
-                );
-            })
-            .catch(err => {
-                window.webkit.messageHandlers.jsHandler.postMessage(
-                    "❌ fetch error: " + err.message
-                );
             });
+
     })();
     """
 }
