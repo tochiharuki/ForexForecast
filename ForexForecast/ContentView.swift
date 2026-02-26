@@ -5,7 +5,16 @@ struct ContentView: View {
     @State private var refreshTrigger = false
     @State private var isLoading = false
     @State private var lastUpdated = Date()
-    
+    @State private var totalProfit: Int = 0
+    @State private var tradeProfits: [Int] = []
+    @State private var winRate: Double = 0.0
+
+    private var averageProfit: Double {
+        guard !tradeProfits.isEmpty else { return 0 }
+        let sum = tradeProfits.reduce(0, +)
+        return Double(sum) / Double(tradeProfits.count)
+    }
+
     var body: some View {
 
         ZStack {
@@ -15,7 +24,12 @@ struct ContentView: View {
 
                 headerView
 
-                ChartView(refreshTrigger: $refreshTrigger)
+                ChartView(
+                    refreshTrigger: $refreshTrigger,
+                    totalProfit: $totalProfit,
+                    tradeProfits: $tradeProfits,
+                    winRate: $winRate
+                )
                     // give the web view a non‑zero height so the chart can render
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay {
@@ -39,7 +53,7 @@ struct ContentView: View {
         VStack(spacing: 12) {
 
             HStack {
-                Text("FX Forecast")
+                Text("ForexForecast")
                     .font(.title2.bold())
                     .foregroundColor(.white)
 
@@ -57,13 +71,21 @@ struct ContentView: View {
             }
 
             HStack {
-                Text("Last Update:")
+                Text("Total Profit (20):")
+                        .foregroundColor(.gray)
+                    Text(totalProfit.formatted())
+                        .foregroundColor(totalProfit >= 0 ? .green : .red)
+                Text("Avg")
                     .foregroundColor(.gray)
-
-                Text(lastUpdated.formatted(date: .omitted, time: .standard))
-                    .foregroundColor(.green)
+                Text(averageProfit.formatted())  // ← ここで平均損益表示
+                    .foregroundColor(averageProfit >= 0 ? .green : .red)
 
                 Spacer()
+
+                Text("Win Rate:")
+                    .foregroundColor(.gray)
+                Text(String(format: "%.1f%%", winRate))
+                    .foregroundColor(.green)
             }
             .font(.caption)
         }

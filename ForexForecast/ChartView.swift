@@ -3,9 +3,13 @@ import WebKit
 
 struct ChartView: UIViewRepresentable {
     @Binding var refreshTrigger: Bool
+    @Binding var totalProfit: Int
+    @Binding var tradeProfits: [Int]  // ← ContentView の配列をバインディングで渡す
+    @Binding var winRate: Double 
+    
 
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(parent: self)
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -53,7 +57,10 @@ struct ChartView: UIViewRepresentable {
     // Coordinator
     // ===============================
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-
+        var parent: ChartView
+        init(parent: ChartView) {
+            self.parent = parent
+        }
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.evaluateJavaScript(ChartView.chartJS)
         }
@@ -62,6 +69,22 @@ struct ChartView: UIViewRepresentable {
             _ userContentController: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
+            // ここで損益サマリを受け取る
+            if let dict = message.body as? [String: Any],
+                dict["type"] as? String == "profitSummary" {
+
+                let total = dict["totalProfit"] as? Int ?? 0
+                let trades = dict["tradeProfits"] as? [Int] ?? []
+                let win = dict["winRate"] as? Double ?? 0.0
+
+                DispatchQueue.main.async {
+                    self.parent.totalProfit = total
+                    self.parent.tradeProfits = trades
+                    self.parent.winRate = win
+                }
+                return
+            }
+
             print("JS:", message.body)
         }
     }
@@ -152,7 +175,7 @@ struct ChartView: UIViewRepresentable {
         // Data Fetch (exposed)
         // ===============================
         function updateChartData() {
-            fetch("https://harukitech.site/candles?limit=200")
+            fetch("https://harukitech.site/candles?limit=960")
                 .then(res => {
                     if (!res.ok) throw new Error("HTTP " + res.status);
                     return res.json();
@@ -247,12 +270,38 @@ struct ChartView: UIViewRepresentable {
                     ]);
 
                     chart.timeScale().fitContent();
+                    let totalProfit = 0;
+                    let tradeProfits = [];
+                    let wins = 0;
 
+                    exitMarkers.forEach(marker => {
+                        let profit = marker.text === "TP" ? 60000 : -30000;
+                        totalProfit += profit;
+                        tradeProfits.push(profit);
+                        if (profit > 0) wins += 1;
+                    });
+
+                    let winRate = exitMarkers.length > 0 ? (wins / exitMarkers.length) * 100 : 0;
+
+                    window.webkit.messageHandlers.jsHandler.postMessage({
+                        type: "profitSummary",
+                        totalProfit: totalProfit,
+                        tradeProfits: tradeProfits,
+                        winRate: winRate
+                    });
+
+                    // ログ
                     window.webkit.messageHandlers.jsHandler.postMessage(
                         "Chart rendered candles=" + candles.length +
                         " entry=" + entryMarkers.length +
                         " exit=" + exitMarkers.length
                     );
+                    window.webkit.messageHandlers.jsHandler.postMessage(
+                        "Chart rendered candles=" + candles.length +
+                        " entry=" + entryMarkers.length +
+                        " exit=" + exitMarkers.length
+                    );
+
                 })
                 .catch(err => {
                     window.webkit.messageHandlers.jsHandler.postMessage(
