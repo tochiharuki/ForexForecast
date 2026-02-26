@@ -1,3 +1,4 @@
+
 import SwiftUI
 import WebKit
 
@@ -5,7 +6,7 @@ struct ChartView: UIViewRepresentable {
     @Binding var refreshTrigger: Bool
     @Binding var totalProfit: Int
     @Binding var tradeProfits: [Int]  // ← ContentView の配列をバインディングで渡す
-    @Binding var winRate: Double 
+    @Binding var winRate: Double       // 勝率（0〜100）
     
 
     func makeCoordinator() -> Coordinator {
@@ -57,10 +58,12 @@ struct ChartView: UIViewRepresentable {
     // Coordinator
     // ===============================
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    
         var parent: ChartView
         init(parent: ChartView) {
             self.parent = parent
         }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             webView.evaluateJavaScript(ChartView.chartJS)
         }
@@ -71,12 +74,12 @@ struct ChartView: UIViewRepresentable {
         ) {
             // ここで損益サマリを受け取る
             if let dict = message.body as? [String: Any],
-                dict["type"] as? String == "profitSummary" {
-
+               dict["type"] as? String == "profitSummary" {
+            
                 let total = dict["totalProfit"] as? Int ?? 0
                 let trades = dict["tradeProfits"] as? [Int] ?? []
                 let win = dict["winRate"] as? Double ?? 0.0
-
+            
                 DispatchQueue.main.async {
                     self.parent.totalProfit = total
                     self.parent.tradeProfits = trades
@@ -138,7 +141,7 @@ struct ChartView: UIViewRepresentable {
         // ===============================
         const chart = LightweightCharts.createChart(container, {
             width: w,
-            height: h,
+            height: h - 10,
             layout: {
                 background: { type: "solid", color: "#111" },
                 textColor: "#DDD"
@@ -273,16 +276,16 @@ struct ChartView: UIViewRepresentable {
                     let totalProfit = 0;
                     let tradeProfits = [];
                     let wins = 0;
-
+                    
                     exitMarkers.forEach(marker => {
                         let profit = marker.text === "TP" ? 60000 : -30000;
                         totalProfit += profit;
                         tradeProfits.push(profit);
                         if (profit > 0) wins += 1;
                     });
-
+                    
                     let winRate = exitMarkers.length > 0 ? (wins / exitMarkers.length) * 100 : 0;
-
+                    
                     window.webkit.messageHandlers.jsHandler.postMessage({
                         type: "profitSummary",
                         totalProfit: totalProfit,
@@ -301,7 +304,6 @@ struct ChartView: UIViewRepresentable {
                         " entry=" + entryMarkers.length +
                         " exit=" + exitMarkers.length
                     );
-
                 })
                 .catch(err => {
                     window.webkit.messageHandlers.jsHandler.postMessage(
