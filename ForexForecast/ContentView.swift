@@ -2,10 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
 
-    @State private var reloadTrigger = false
+    @State private var refreshTrigger = false
     @State private var isLoading = false
     @State private var lastUpdated = Date()
-
+    
     var body: some View {
 
         ZStack {
@@ -13,24 +13,24 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
 
-                // ===== Header =====
                 headerView
 
-                // ===== Chart =====
-                ChartView(reloadTrigger: $reloadTrigger)
+                ChartView(refreshTrigger: $refreshTrigger)
+                    // give the web view a non‑zero height so the chart can render
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay {
                         if isLoading {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                                .tint(.white)
+                            ZStack {
+                                Color.black.opacity(0.6)
+                                ProgressView()
+                                    .scaleEffect(1.4)
+                                    .tint(.white)
+                            }
                         }
                     }
             }
         }
         .onAppear {
-            refresh()
-        }
-        .refreshable {
             refresh()
         }
     }
@@ -51,7 +51,7 @@ struct ContentView: View {
                     Image(systemName: "arrow.clockwise")
                         .foregroundColor(.white)
                         .padding(10)
-                        .background(Color.gray.opacity(0.3))
+                        .background(Color.gray.opacity(0.25))
                         .clipShape(Circle())
                 }
             }
@@ -68,14 +68,14 @@ struct ContentView: View {
             .font(.caption)
         }
         .padding()
-        .background(Color(#colorLiteral(red: 0.08, green: 0.1, blue: 0.15, alpha: 1)))
+        .background(Color(red: 0.08, green: 0.1, blue: 0.15))
     }
 
     private func refresh() {
         isLoading = true
-        reloadTrigger = true
+        refreshTrigger = true
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             lastUpdated = Date()
             isLoading = false
         }
