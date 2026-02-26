@@ -32,7 +32,8 @@ struct ContentView: View {
                 )
                 
                     // give the web view a non‑zero height so the chart can render
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    
+                    .padding(.bottom, 8)
                     .overlay {
                         if isLoading {
                             ZStack {
@@ -44,15 +45,16 @@ struct ContentView: View {
                         }
                     }
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 16)
         }
+        
         .onAppear {
             refresh()
         }
     }
 
     private var headerView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 0) {
 
             HStack {
                 Text("ForexForecast")
