@@ -272,14 +272,16 @@ struct ChartView: UIViewRepresentable {
                     });
 
                     // ===============================
-                    // APPLY MARKERS（重要）
+                    // APPLY MARKERS（完全版）
                     // ===============================
-                    series.setMarkers([
+                    const allMarkers = [
                         ...entryMarkers,
                         ...exitMarkers
-                    ]);
+                    ].sort((a, b) => a.time - b.time);
 
-                    chart.timeScale().fitContent();
+                    series.setMarkers(allMarkers);
+
+                    chart.timeScale().scrollToRealTime();
                     let totalProfit = 0;
                     let tradeProfits = [];
                     let wins = 0;
