@@ -138,6 +138,7 @@ struct ChartView: UIViewRepresentable {
         // ===============================
         // Chart
         // ===============================
+        window.tradeLines = [];
         const chart = LightweightCharts.createChart(container, {
             width: w,
             height: h - 30,
@@ -177,6 +178,12 @@ struct ChartView: UIViewRepresentable {
         // Data Fetch (exposed)
         // ===============================
         function updateChartData() {
+
+            // 既存ライン削除（重要）
+            if (window.tradeLines && window.tradeLines.length > 0) {
+                window.tradeLines.forEach(line => chart.removeSeries(line));
+                window.tradeLines = [];
+            }
             fetch("https://harukitech.site/candles?limit=960")
                 .then(res => {
                     if (!res.ok) throw new Error("HTTP " + res.status);
@@ -239,6 +246,7 @@ struct ChartView: UIViewRepresentable {
                                 priceLineVisible: false,
                                 lastValueVisible: false,
                             });
+                            window.tradeLines.push(lineSeries);
 
                             lineSeries.setData([
                                 { time: currentTrade.entryTime, value: currentTrade.entryPrice },
@@ -254,7 +262,7 @@ struct ChartView: UIViewRepresentable {
                                 position: isProfit
                                     ? (currentTrade.direction === "LONG" ? "aboveBar" : "belowBar")
                                     : (currentTrade.direction === "LONG" ? "belowBar" : "aboveBar"),
-                                color: isProfit ? "#ffa237" : "#3438ff",
+                                color: isProfit ? "#4caf50" : "#5255ff",
                                 shape: isProfit ? "arrowUp" : "arrowDown",
                                 text: isProfit ? "TP" : "SL"
                             });
@@ -293,11 +301,6 @@ struct ChartView: UIViewRepresentable {
                     });
 
                     // ログ
-                    window.webkit.messageHandlers.jsHandler.postMessage(
-                        "Chart rendered candles=" + candles.length +
-                        " entry=" + entryMarkers.length +
-                        " exit=" + exitMarkers.length
-                    );
                     window.webkit.messageHandlers.jsHandler.postMessage(
                         "Chart rendered candles=" + candles.length +
                         " entry=" + entryMarkers.length +
