@@ -140,7 +140,7 @@ struct ChartView: UIViewRepresentable {
         // ===============================
         const chart = LightweightCharts.createChart(container, {
             width: w,
-            height: h - 20,
+            height: h - 30,
             layout: {
                 background: { type: "solid", color: "#111" },
                 textColor: "#DDD"

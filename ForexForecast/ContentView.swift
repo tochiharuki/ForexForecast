@@ -43,6 +43,7 @@ struct ContentView: View {
                         }
                     }
             }
+            .padding(.bottom, 20)
         }
         .onAppear {
             refresh()
