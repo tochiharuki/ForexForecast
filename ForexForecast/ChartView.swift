@@ -254,7 +254,7 @@ struct ChartView: UIViewRepresentable {
                                 position: isProfit
                                     ? (currentTrade.direction === "LONG" ? "aboveBar" : "belowBar")
                                     : (currentTrade.direction === "LONG" ? "belowBar" : "aboveBar"),
-                                color: isProfit ? "#4caf50" : "#ff5252",
+                                color: isProfit ? "#ffa237" : "#3438ff",
                                 shape: isProfit ? "arrowUp" : "arrowDown",
                                 text: isProfit ? "TP" : "SL"
                             });
