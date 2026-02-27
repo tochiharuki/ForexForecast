@@ -1,4 +1,3 @@
-
 import SwiftUI
 import WebKit
 
@@ -141,7 +140,7 @@ struct ChartView: UIViewRepresentable {
         // ===============================
         const chart = LightweightCharts.createChart(container, {
             width: w,
-            height: h - 10,
+            height: h - 20,
             layout: {
                 background: { type: "solid", color: "#111" },
                 textColor: "#DDD"

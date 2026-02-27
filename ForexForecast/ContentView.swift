@@ -31,7 +31,7 @@ struct ContentView: View {
                     winRate: $winRate
                 )
                     // give the web view a non‑zero height so the chart can render
-                    
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay {
                         if isLoading {
                             ZStack {
